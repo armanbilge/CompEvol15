@@ -1,5 +1,7 @@
 \documentclass{beamer}
 \usepackage{graphicx}
+\usepackage{listings}
+\usepackage{ulem}
 
 \usetheme{Dresden}
 \setbeamertemplate{navigation symbols}{}
@@ -7,58 +9,239 @@
 \usepackage{mathtools}
 \newcommand{\dd}{\, \text{d}}
 \renewcommand{\vec}[1]{\ensuremath{\mathbf{#1}}}
+\newcommand{\mat}[1]{\ensuremath{\mathbf{#1}}}
 \newcommand{\op}[1]{\ensuremath{\mathbf{#1}}}
+\newcommand{\norm}{\ensuremath{\mathcal{N}}}
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 
 \title[HMC]{Implementing Hamiltonian Monte Carlo for Efficent Bayesian Evolutionary Analysis}
 \author{Arman Bilge}
-\date{2 April 2015}
+\date{2nd April 2015}
 
 \begin{document}
 
     \frame{\titlepage}
-    
+
     \section{Introduction}
-    
-    \begin{frame}{Bayesian Evolutionary Analysis}
-        
-        \begin{equation}
+
+    \begin{frame}{What is Bayesian Evolutionary Analysis?}
+
+        Problems which are centered around sampling from the posterior distribution of trees given sequence data, given by
+
+        \begin{equation*}
             p\left(T \mid D\right)
                 \propto \int_\theta p\left(D \mid T,\theta\right)
-                p\left(T \mid \theta\right) p\left(\theta\right) \dd\theta
-        \end{equation}
-        
-        $p\left(D \mid T,\theta\right)$ is the Felsenstein tree likelihood. \\
-        $p\left(T \mid \theta\right)$ is the tree prior. \\
+                p\left(T \mid \theta\right) p\left(\theta\right) \dd\theta,
+        \end{equation*}
+
+        where \\
+        $p\left(D \mid T,\theta\right)$ is the Felsenstein tree likelihood, \\
+        $p\left(T \mid \theta\right)$ is the tree prior, and \\
         $\theta$ are nuisance parameters.
-        
-    \end{frame}
-    
-    \section{Methods}
-    
-    \begin{frame}{The Operators}
-        
-        \begin{definition}
-            $\op{F}\left\{\vec{q},\vec{p}\right\} = \left\{\vec{q},-\vec{p}\right\}$
-        \end{definition}
-        
-        \vfill
-        
-        \centering
-        \includegraphics[width=0.75\textwidth]{F.pdf}
-        
+
+        \vspace{14pt}
+        Markov chain Monte Carlo has been very successfully applied to this sampling problem.
+
     \end{frame}
 
-    \begin{frame}{The Operators}
-        
+    \begin{frame}{Bayesian Evolutionary Analysis using MCMC}
+
+        \begin{itemize}
+            \item \only<1>{We are very good at creating a Markov chain that converges to the target distribution.} \only<2->{\sout{We are very good at creating a Markov chain that converges to the target distribution.}}
+            \item<2-> We are very good at coercing just about any old Markov chain to converge to the target distribution via Metropolis--Hastings.
+            \begin{equation*}
+                a = \min\left(1, \frac{\pi\left(q^\prime\right)T\left(q^\prime\to q\right)}{\pi\left(q\right)T\left(q\to q^\prime\right)}\right)
+            \end{equation*}
+            \pause
+            \item Hence, chain is generally driven by a na\"ive set of operators.
+            \pause
+            \item
+        \end{itemize}
+
+    \end{frame}
+
+    \section{Theory}
+
+    \begin{frame}
+
+    \end{frame}
+
+    \begin{frame}{The Operations}
+
         \begin{definition}
-            $\op{L}\left\{\vec{q},\vec{p}\right\} = \text{The state after } \epsilon L \text{ time, as approximated by } L \text{ leapfrogs with stepsize } \epsilon$
+            $\op{L}\left\{\vec{q},\vec{p}\right\}$ maps the state at time~$t$ to the state at time~$t + \epsilon L$, as approximated by $L$~leapfrog steps of size~$\epsilon$.
         \end{definition}
-        
+
         \vfill
-        
+
         \centering
         \includegraphics[width=0.75\textwidth]{L.pdf}
-        
+
     \end{frame}
-    
+
+    \begin{frame}{The Leapfrog Integrator}
+
+        \begin{block}{A single leapfrog step}
+            \begin{equation*}
+                \vec{p}\left(t+\frac{\epsilon}{2}\right) = \vec{p}\left(t\right) - \frac{\epsilon}{2} \cdot \frac{\partial U}{\partial \vec{q}} \odot \vec{q}\left(t\right)
+            \end{equation*}
+            \pause
+            \begin{equation*}
+                \vec{q}\left(t+\epsilon\right) = \vec{q}\left(t\right) + \epsilon \cdot \frac{\partial K}{\partial \vec{p}} \odot \vec{p}\left(t+\frac{\epsilon}{2}\right)
+            \end{equation*}
+            \pause
+            \begin{equation*}
+                \vec{p}\left(t+\epsilon\right) = \vec{p}\left(t + \frac{\epsilon}{2}\right) - \frac{\epsilon}{2} \cdot \frac{\partial U}{\partial \vec{q}} \odot \vec{q}\left(t+\epsilon\right)
+            \end{equation*}
+        \end{block}
+
+        \begin{itemize}
+            \item Symplectic integrator: volume preserving
+        \end{itemize}
+
+    \end{frame}
+
+    \begin{frame}{The Operations}
+
+        \begin{definition}
+            $\op{F}\left\{\vec{q},\vec{p}\right\} = \left\{\vec{q},-\vec{p}\right\}$ flips the momentum.
+        \end{definition}
+
+        \vfill
+
+        \centering
+        \includegraphics[width=0.75\textwidth]{F.pdf}
+
+    \end{frame}
+
+    \begin{frame}{Discrete Ladder of HMC}
+        \centering
+        \includegraphics[width=0.5\textwidth]{ladder.pdf}
+    \end{frame}
+
+    \begin{frame}{The Operations}
+
+        \begin{definition}
+            $\op{R}\left\{\vec{q},\vec{p}\right\} = \left\{\vec{q}, \sqrt{1-\alpha}\vec{p} + \sqrt{\alpha}\vec{n}\right\}, \vec{n} \sim \norm\left(\vec{0}, \mat{M}\right)$ corrupts the momentum with noise. The $\alpha$~parameter determines by exactly how much.
+        \end{definition}
+
+        \vfill
+
+        \centering
+        \includegraphics[width=0.75\textwidth]{R.pdf}
+
+    \end{frame}
+
+    \begin{frame}{The HMC Algorithm}
+            \begin{algorithmic}[1]
+            \Function {HamiltonUpdate}{$\left\{\vec{q},\vec{p}\right\}$}
+                \State $\left\{\vec{q}^\prime, \vec{p}^\prime\right\}
+                    \leftarrow \op{F}\op{L}\left\{\vec{q},\vec{p}\right\}$
+                \State $a \leftarrow \min\left(1,
+                    \exp\left(
+                        H\left(\vec{q}, \vec{p}\right) - H\left(\vec{q}^\prime,
+                            \vec{p}^\prime\right)\right)\right)$
+                \State $\left\{\vec{q},\vec{p}\right\} \leftarrow
+                    \begin{cases}
+                        \left\{\vec{q}^\prime, \vec{p}^\prime\right\}
+                            & \text{with probability } a \\
+                        \left\{\vec{q},\vec{p}\right\}
+                            & \text{with probability } 1 - a
+                    \end{cases}$
+                \State $\left\{\vec{q},\vec{p}\right\} \leftarrow
+                            \op{R}\op{F}\left\{\vec{q},\vec{p}\right\}$
+                \State \Return $\left\{\vec{q},\vec{p}\right\}$
+            \EndFunction
+            \end{algorithmic}
+    \end{frame}
+
+    \begin{frame}{In summary...}
+        \textbf{Upgrading to HMC is like putting your MCMC through rehab and then giving it a pair of skis.}
+        \vspace{12pt}
+        \pause
+        \begin{columns}[c]
+            \begin{column}{0.5\textwidth}
+                \centering
+                \includegraphics[width=0.5\textwidth]{mcmc-robot.jpg}
+            \end{column}
+            \pause
+            \begin{column}{0.5\textwidth}
+                \centering
+                \includegraphics[width=\textwidth]{hmc-robot.jpg}
+            \end{column}
+        \end{columns}
+
+    \end{frame}
+
+    \section{Implementation Details}
+
+    \begin{frame}{Differentiating the Felsenstein Tree Likelihood}
+
+        The molecular substitution probabilities for time~$t$ are given by
+        \begin{equation*}
+            \mat{P}\left(t\right) = e^{\mat{Q}t} \implies \frac{\dd \mat{P}}{\dd t} = \mat{Q}e^{\mat{Q}t}
+        \end{equation*}
+        where $\mat{Q}$ is the instantaneous rate matrix.
+        Therefore $\frac{\partial p\left(D\mid T\right)}{\partial b_i}$ is given by substituting differentiated matrix for original at the branch and running Felsenstein's pruning algorithm.
+        Then then derivative with respect to node height $n_i$ is
+        \begin{equation*}
+            \frac{\partial p\left(D\mid T\right)}{\partial n_i} = - \frac{\partial p\left(D\mid T\right)}{\partial b_i} + \frac{\partial p\left(D\mid T\right)}{\partial b_{c_1}} + \frac{\partial p\left(D\mid T\right)}{\partial b_{c_2}}
+        \end{equation*}
+        where $c_1,c_2$ are children of $i$.
+        Differentiate tree likelihood against branches in pre-order to maximise the utility of partials!
+
+    \end{frame}
+
+    \section{Results}
+
+    % \begin{frame}
+    %     Implementing derivatives for everything is really annoying but necessary.
+    %
+    %     \begin{lstlisting}
+    %         public double logNodeProbability(Tree tree, NodeRef node) {
+    %             final double height = tree.getNodeHeight(node);
+    %             final double r = getR();
+    %             final double mrh = -r * height;
+    %             final double a = getA();
+    %             final double rho = getRho();
+    %
+    %             if (conditionalOnRoot && tree.isRoot(node)) {
+    %                 return (tree.getTaxonCount() - 2) * logConditioningTerm(height);
+    %             }
+    %
+    %             final double z = Math.log(rho + ((1 - rho) - a) * Math.exp(mrh));
+    %             double l = -2 * z + mrh;
+    %
+    %             if (!conditionOnOrigin && !conditionalOnRoot && tree.isRoot(node)) {
+    %                 l += mrh - z;
+    %             }
+    %
+    %             return l;
+    %         }
+    %     \end{lstlisting}
+    % \end{frame}
+
+    \begin{frame}{Extensions to HMC}
+
+    \begin{block}{In the literature}
+        \begin{itemize}
+            \item NUTS (No-U-Turns Sampler)
+            \item Look Ahead HMC
+            \item Riemannian Manifold HMC
+            \item Spherical HMC
+            \item Wormhole HMC
+        \end{itemize}
+    \end{block}
+
+    \begin{block}{From group members}
+        \begin{itemize}
+            \item Multivariate normal approximations
+            \item
+        \end{itemize}
+    \end{block}
+
+    \end{frame}
+
 \end{document}
