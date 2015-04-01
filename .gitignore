@@ -87,3 +87,7 @@ sympy-plots-for-*.tex/
 
 # xindy
 *.xdy
+
+!F.pdf
+!L.pdf
+!ladder.pdf
