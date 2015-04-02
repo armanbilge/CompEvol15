@@ -42,7 +42,8 @@
         $\theta$ are nuisance parameters.
 
         \vspace{14pt}
-        Markov chain Monte Carlo has been very successfully applied to this sampling problem.
+        Markov chain Monte Carlo samplers have been successfully applied to these distributions.
+        Because samples are inherently correlated, we aim to maximise the effective sample size (ESS).
 
     \end{frame}
 
@@ -50,22 +51,68 @@
 
         \begin{itemize}
             \item \only<1>{We are very good at creating a Markov chain that converges to the target distribution.} \only<2->{\sout{We are very good at creating a Markov chain that converges to the target distribution.}}
-            \item<2-> We are very good at coercing just about any old Markov chain to converge to the target distribution via Metropolis--Hastings.
+            \item<2-> We are very good at coercing just about any old Markov chain to converge to the target distribution via Metropolis--Hastings:
             \begin{equation*}
                 a = \min\left(1, \frac{\pi\left(q^\prime\right)T\left(q^\prime\to q\right)}{\pi\left(q\right)T\left(q\to q^\prime\right)}\right)
             \end{equation*}
             \pause
             \item Hence, chain is generally driven by a na\"ive set of operators.
-            \pause
-            \item
+        \end{itemize}
+
+    \end{frame}
+
+    \begin{frame}{Properties of MCMC}
+
+        \begin{itemize}
+            \item Ergodicity depends on the proposal distribution
+            \item Optimal proposal acceptance rate is $0.234$
+            \item Scales on the order of $d^2$
+            \item We can do better!
         \end{itemize}
 
     \end{frame}
 
     \section{Theory}
 
-    \begin{frame}
+    \begin{frame}{Hamiltonian Dynamics}
+        \begin{definition}
+            Let $\pi\left(\vec{q}\right)$ be the target probability density.
+            Consider a particle of mass~$\mat{M}$ in the state space.
+            We augment its position $\vec{q}$ with momentum $\vec{p}$ and define
+            the \emph{Hamiltonian} for our system as
+            \begin{equation*}
+                H\left(\vec{q},\vec{p}\right) = U\left(\vec{q}\right) + K\left(\vec{p}\right)
+            \end{equation*}
+            with potential energy
+            \begin{equation*}
+                U\left(\vec{q}\right) = - \log{\pi\left(\vec{q}\right)}
+            \end{equation*}
+            and kinetic energy
+            \begin{equation*}
+                K\left(\vec{p}\right) = \frac{1}{2} \vec{p}^T \mat{M}^{-1} \vec{p}
+            \end{equation*}
+            % Consider a particle. Let its position $\vec{q}$ be the parameter of interest and momentum $\vec{p}$ be an auxillary parameter.
+        \end{definition}
+        
+    \end{frame}
 
+    \begin{frame}{Hamiltonian Dynamics}
+
+        The dynamics of this system are given by Hamilton's equations
+            \begin{align*}
+                \frac{\dd \vec{q}}{\dd t} &= \frac{\partial H}{\partial \vec{p}} \\
+                \frac{\dd \vec{p}}{\dd t} &= -\frac{\partial H}{\partial \vec{q}}
+            \end{align*}
+        which can be integrated to map the particle's state from one point in time to another.
+
+    \end{frame}
+
+    \begin{frame}{Properties of Hamiltonian Dynamics}
+        \begin{itemize}
+            \item Reversibility
+            \item Energy-conserving
+            \item Volume-preserving (symplectic)
+        \end{itemize}
     \end{frame}
 
     \begin{frame}{The Operations}
@@ -97,9 +144,7 @@
             \end{equation*}
         \end{block}
 
-        \begin{itemize}
-            \item Symplectic integrator: volume preserving
-        \end{itemize}
+        The leapfrog method is a symplectic integrator appropriate for Hamiltonian dynamics.
 
     \end{frame}
 
@@ -157,6 +202,15 @@
             \end{algorithmic}
     \end{frame}
 
+    \begin{frame}{Properties of HMC}
+        \begin{itemize}
+            \item Ergodic
+            \item Optimal acceptance rate is $0.651$
+            \item Scales on the order $d^\frac{5}{4}$
+            \item Can be mixed with other MCMC updates
+        \end{itemize}
+    \end{frame}
+
     \begin{frame}{In summary...}
         \textbf{Upgrading to HMC is like putting your MCMC through rehab and then giving it a pair of skis.}
         \vspace{12pt}
@@ -175,7 +229,29 @@
 
     \end{frame}
 
-    \section{Implementation Details}
+    \section{Implementation}
+
+    \begin{frame}{Implementation}
+
+        \begin{itemize}
+            
+            \item Implemented \texttt{HamiltonUpdate} as operator whose Hastings' ratio is given by difference in kinetic energy
+            
+            \item $\epsilon$ auto-optimised; all other tuning parameters fixed
+            
+            \item Added a high-level method signature \texttt{double~differentiate(Parameter param, int dim)}
+            
+            \item Things I have differentiated (and tested):
+                \begin{itemize}
+                    \item Base distributions and priors
+                    \item Basic coalescent models
+                    \item Birth--death--sampling model
+                    \item Tree likelihood (including BEAGLE implementation)
+                \end{itemize}
+            
+        \end{itemize}
+
+    \end{frame}
 
     \begin{frame}{Differentiating the Felsenstein Tree Likelihood}
 
